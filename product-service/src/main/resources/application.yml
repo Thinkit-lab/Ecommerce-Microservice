@@ -1,0 +1,5 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb+srv://admin:admin@olaoye.06e6a5l.mongodb.net/?retryWrites=true&w=majority
+      database: ProductService
