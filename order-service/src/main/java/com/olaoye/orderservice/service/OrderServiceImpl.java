@@ -7,6 +7,7 @@ import com.olaoye.orderservice.model.Order;
 import com.olaoye.orderservice.model.OrderLineItems;
 import com.olaoye.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cloud.sleuth.Tracer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -22,6 +23,7 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
+    private final Tracer tracer;//this is for creating separate trace ID Since Inventory call will be running on separate thread
 
     @Override
     public String placeOrder(OrderRequest orderRequest) {
