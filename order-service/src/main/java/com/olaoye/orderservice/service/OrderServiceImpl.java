@@ -1,5 +1,7 @@
 package com.olaoye.orderservice.service;
 
+import brave.Span;
+import brave.Tracer;
 import com.olaoye.orderservice.dto.InventoryResponse;
 import com.olaoye.orderservice.dto.OrderLineItemsDto;
 import com.olaoye.orderservice.dto.OrderRequest;
@@ -7,7 +9,6 @@ import com.olaoye.orderservice.model.Order;
 import com.olaoye.orderservice.model.OrderLineItems;
 import com.olaoye.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cloud.sleuth.Tracer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -34,9 +35,16 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
         order.setOrderNumber(UUID.randomUUID().toString().split("-")[0]);
         order.setOrderLineItemsList(orderLineItems);
+
+
         List<String> skuCodes = order.getOrderLineItemsList().stream()
                 .map(OrderLineItems::getSkuCode)
                 .toList();
+
+        Span inventoryServiceLookup = tracer.nextSpan().name("InventoryServiceLookUp");
+
+        try(Tracer.SpanInScope inventoryLook = tracer.withSpanInScope(inventoryServiceLookup.start())){
+            inventoryServiceLookup.tag("call", "inventory-service");
         InventoryResponse[] inventoryResponses = webClientBuilder.build().get()
                 .uri("http://inventory-service/api/inventory", uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build())
                 .retrieve()
@@ -50,6 +58,10 @@ public class OrderServiceImpl implements OrderService {
         } else {
             throw new IllegalArgumentException("Product is not in stock please check back later");
         }
+        } finally {
+            inventoryServiceLookup.flush();
+        }
+
     }
 
     private OrderLineItems mapToDto(OrderLineItemsDto orderLineItemsDto) {
