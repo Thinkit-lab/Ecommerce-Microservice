@@ -5,10 +5,12 @@ import brave.Tracer;
 import com.olaoye.orderservice.dto.InventoryResponse;
 import com.olaoye.orderservice.dto.OrderLineItemsDto;
 import com.olaoye.orderservice.dto.OrderRequest;
+import com.olaoye.orderservice.events.OrderPlacedEvents;
 import com.olaoye.orderservice.model.Order;
 import com.olaoye.orderservice.model.OrderLineItems;
 import com.olaoye.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -25,6 +27,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
     private final Tracer tracer;//this is for creating separate trace ID Since Inventory call will be running on separate thread
+    private final KafkaTemplate<String, OrderPlacedEvents> kafkaTemplate;
 
     @Override
     public String placeOrder(OrderRequest orderRequest) {
@@ -54,6 +57,7 @@ public class OrderServiceImpl implements OrderService {
         boolean allProductsInStock = Arrays.stream(inventoryResponses).allMatch(InventoryResponse::getIsInStock);
         if (allProductsInStock) {
             orderRepository.save(order);
+            kafkaTemplate.send("notificationTopic", new OrderPlacedEvents(order.getOrderNumber()));
             return "Order place successfully";
         } else {
             throw new IllegalArgumentException("Product is not in stock please check back later");
